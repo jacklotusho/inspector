@@ -44,13 +44,22 @@ type Args = {
   toolMeta?: Record<string, string>;
   transport?: "sse" | "stdio" | "http";
   headers?: Record<string, string>;
+
   metadata?: Record<string, string>;
+  clientCert?: string;
+  clientKey?: string;
+  clientKeyPassphrase?: string;
+  caCert?: string;
 };
 
 function createTransportOptions(
   target: string[],
   transport?: "sse" | "stdio" | "http",
   headers?: Record<string, string>,
+  clientCert?: string,
+  clientKey?: string,
+  clientKeyPassphrase?: string,
+  caCert?: string,
 ): TransportOptions {
   if (target.length === 0) {
     throw new Error(
@@ -98,6 +107,10 @@ function createTransportOptions(
     args: isUrl ? undefined : commandArgs,
     url: isUrl ? command : undefined,
     headers,
+    clientCert,
+    clientKey,
+    clientKeyPassphrase,
+    caCert,
   };
 }
 
@@ -115,6 +128,10 @@ async function callMethod(args: Args): Promise<void> {
     args.target,
     args.transport,
     args.headers,
+    args.clientCert,
+    args.clientKey,
+    args.clientKeyPassphrase,
+    args.caCert,
   );
   const transport = createTransport(transportOptions);
 
@@ -356,7 +373,14 @@ function parseArgs(): Args {
       "Tool-specific metadata as key=value pairs (for tools/call method only)",
       parseKeyValuePair,
       {},
-    );
+    )
+    .option("--client-cert <path>", "client certificate path")
+    .option("--client-key <path>", "client private key path")
+    .option(
+      "--client-key-passphrase <passphrase>",
+      "client private key passphrase",
+    )
+    .option("--ca-cert <path>", "CA certificate path");
 
   // Parse only the arguments before --
   program.parse(preArgs);

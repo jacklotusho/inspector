@@ -75,5 +75,31 @@ export const DEFAULT_INSPECTOR_CONFIG: InspectorConfig = {
       "Session token for authenticating with the MCP Proxy Server (displayed in proxy console on startup)",
     value: "",
     is_session_item: true,
+    is_secret: true,
+  },
+  MCP_CLIENT_CERT_PATH: {
+    label: "Client Certificate",
+    description: "Path to client certificate file or PEM content for mTLS",
+    value: "",
+    is_session_item: true,
+  },
+  MCP_CLIENT_KEY_PATH: {
+    label: "Client Key",
+    description: "Path to client private key file or PEM content for mTLS",
+    value: "",
+    is_session_item: true,
+  },
+  MCP_CLIENT_KEY_PASSPHRASE: {
+    label: "Client Key Passphrase",
+    description: "Passphrase for encrypted client private key",
+    value: "",
+    is_session_item: true,
+    is_secret: true,
+  },
+  MCP_CA_CERT_PATH: {
+    label: "CA Certificate",
+    description: "Path to CA certificate file or PEM content for mTLS",
+    value: "",
+    is_session_item: true,
   },
 } as const;

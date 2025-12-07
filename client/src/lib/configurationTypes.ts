@@ -3,6 +3,7 @@ export type ConfigItem = {
   description: string;
   value: string | number | boolean;
   is_session_item: boolean;
+  is_secret?: boolean;
 };
 
 /**
@@ -38,6 +39,28 @@ export type InspectorConfig = {
 
   /**
    * Session token for authenticating with the MCP Proxy Server. This token is displayed in the proxy server console on startup.
+   * This item is a secret and should be suppressed in UI inputs.
    */
   MCP_PROXY_AUTH_TOKEN: ConfigItem;
+
+  /**
+   * Client certificate for mTLS authentication. Can be a file path or PEM content.
+   */
+  MCP_CLIENT_CERT_PATH: ConfigItem;
+
+  /**
+   * Client private key for mTLS authentication. Can be a file path or PEM content.
+   */
+  MCP_CLIENT_KEY_PATH: ConfigItem;
+
+  /**
+   * Passphrase for the client private key, if encrypted.
+   * This item is a secret and should be suppressed in UI inputs.
+   */
+  MCP_CLIENT_KEY_PASSPHRASE: ConfigItem;
+
+  /**
+   * CA certificate for validating the server. Can be a file path or PEM content.
+   */
+  MCP_CA_CERT_PATH: ConfigItem;
 };

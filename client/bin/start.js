@@ -36,9 +36,19 @@ async function startDevServer(serverOptions) {
     abort,
     transport,
     serverUrl,
+    clientCert,
+    clientKey,
+    clientKeyPassphrase,
+    caCert,
   } = serverOptions;
   const serverCommand = "npx";
   const serverArgs = ["tsx", "watch", "--clear-screen=false", "src/index.ts"];
+
+  if (clientCert) serverArgs.push("--client-cert", clientCert);
+  if (clientKey) serverArgs.push("--client-key", clientKey);
+  if (clientKeyPassphrase)
+    serverArgs.push("--client-key-passphrase", clientKeyPassphrase);
+  if (caCert) serverArgs.push("--ca-cert", caCert);
   const isWindows = process.platform === "win32";
 
   const spawnOptions = {
@@ -107,7 +117,18 @@ async function startProdServer(serverOptions) {
         ? [`--args=${mcpServerArgs.join(" ")}`]
         : []),
       ...(transport ? [`--transport=${transport}`] : []),
+      ...(transport ? [`--transport=${transport}`] : []),
       ...(serverUrl ? [`--server-url=${serverUrl}`] : []),
+      ...(serverOptions.clientCert
+        ? [`--client-cert=${serverOptions.clientCert}`]
+        : []),
+      ...(serverOptions.clientKey
+        ? [`--client-key=${serverOptions.clientKey}`]
+        : []),
+      ...(serverOptions.clientKeyPassphrase
+        ? [`--client-key-passphrase=${serverOptions.clientKeyPassphrase}`]
+        : []),
+      ...(serverOptions.caCert ? [`--ca-cert=${serverOptions.caCert}`] : []),
     ],
     {
       env: {
@@ -223,6 +244,10 @@ async function main() {
   let isDev = false;
   let transport = null;
   let serverUrl = null;
+  let clientCert = null;
+  let clientKey = null;
+  let clientKeyPassphrase = null;
+  let caCert = null;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -244,6 +269,30 @@ async function main() {
 
     if (parsingFlags && arg === "--server-url" && i + 1 < args.length) {
       serverUrl = args[++i];
+      continue;
+    }
+
+    if (parsingFlags && arg === "--client-cert" && i + 1 < args.length) {
+      clientCert = args[++i];
+      continue;
+    }
+
+    if (parsingFlags && arg === "--client-key" && i + 1 < args.length) {
+      clientKey = args[++i];
+      continue;
+    }
+
+    if (
+      parsingFlags &&
+      arg === "--client-key-passphrase" &&
+      i + 1 < args.length
+    ) {
+      clientKeyPassphrase = args[++i];
+      continue;
+    }
+
+    if (parsingFlags && arg === "--ca-cert" && i + 1 < args.length) {
+      caCert = args[++i];
       continue;
     }
 
@@ -300,6 +349,10 @@ async function main() {
       mcpServerArgs,
       transport,
       serverUrl,
+      clientCert,
+      clientKey,
+      clientKeyPassphrase,
+      caCert,
     };
 
     const result = isDev

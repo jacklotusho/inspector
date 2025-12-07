@@ -4,6 +4,8 @@ import cors from "cors";
 import { parseArgs } from "node:util";
 import { parse as shellParseArgs } from "shell-quote";
 import nodeFetch, { Headers as NodeHeaders } from "node-fetch";
+import { readFileSync } from "node:fs";
+import https from "node:https";
 
 // Type-compatible wrappers for node-fetch to work with browser-style types
 const fetch = nodeFetch;
@@ -41,6 +43,10 @@ const { values } = parseArgs({
     command: { type: "string", default: "" },
     transport: { type: "string", default: "" },
     "server-url": { type: "string", default: "" },
+    "client-cert": { type: "string", default: "" },
+    "client-key": { type: "string", default: "" },
+    "client-key-passphrase": { type: "string", default: "" },
+    "ca-cert": { type: "string", default: "" },
   },
 });
 
@@ -141,6 +147,71 @@ const updateHeadersInPlace = (
   // Restore the Accept header.
   if (accept) {
     currentHeaders["Accept"] = accept;
+  }
+};
+
+/**
+ * Creates an HTTPS agent with client certificate authentication (mTLS) support.
+ * Reads certificate files from the file system or uses provided certificate data.
+ *
+ * @param options Certificate options from query parameters or environment
+ * @returns HTTPS agent configured with client certificates, or undefined if no certificates provided
+ */
+const createHttpsAgentWithClientCert = (options: {
+  clientCert?: string;
+  clientKey?: string;
+  clientKeyPassphrase?: string;
+  caCert?: string;
+}): https.Agent | undefined => {
+  const { clientCert, clientKey, clientKeyPassphrase, caCert } = options;
+
+  // Check if we have the minimum required certificates
+  if (!clientCert || !clientKey) {
+    return undefined;
+  }
+
+  try {
+    const agentOptions: https.AgentOptions = {};
+
+    // Helper to get content from path or string
+    const getContent = (input: string) => {
+      if (input.includes("-----BEGIN")) {
+        return input;
+      }
+      return readFileSync(input, "utf-8");
+    };
+
+    // Read client certificate
+    agentOptions.cert = getContent(clientCert);
+
+    // Read client private key
+    agentOptions.key = getContent(clientKey);
+
+    // Add passphrase if provided
+    if (clientKeyPassphrase) {
+      agentOptions.passphrase = clientKeyPassphrase;
+    }
+
+    // Read CA certificate if provided
+    if (caCert) {
+      agentOptions.ca = getContent(caCert);
+    }
+
+    console.log("✅ Client certificate authentication configured");
+    if (!clientCert.includes("-----BEGIN"))
+      console.log(`   Client Cert: ${clientCert}`);
+    if (!clientKey.includes("-----BEGIN"))
+      console.log(`   Client Key: ${clientKey}`);
+    if (caCert && !caCert.includes("-----BEGIN")) {
+      console.log(`   CA Cert: ${caCert}`);
+    }
+
+    return new https.Agent(agentOptions);
+  } catch (error) {
+    console.error("❌ Failed to load client certificates:", error);
+    throw new Error(
+      `Failed to load client certificates: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 };
 
@@ -275,7 +346,10 @@ const createWebReadableStream = (nodeStream: any): ReadableStream => {
  * `Content-Type` are preserved. For SSE requests, it also converts Node.js
  * streams to web-compatible streams.
  */
-const createCustomFetch = (headerHolder: { headers: HeadersInit }) => {
+const createCustomFetch = (
+  headerHolder: { headers: HeadersInit },
+  agent?: https.Agent,
+) => {
   return async (
     input: RequestInfo | URL,
     init?: RequestInit,
@@ -303,7 +377,7 @@ const createCustomFetch = (headerHolder: { headers: HeadersInit }) => {
     // Get the response from node-fetch (cast input and init to handle type differences)
     const response = await fetch(
       input as any,
-      { ...init, headers: headersObject } as any,
+      { ...init, headers: headersObject, agent } as any,
     );
 
     // Check if this is an SSE request by looking at the Accept header
@@ -375,13 +449,36 @@ const createTransport = async (
       `SSE transport: url=${url}, headers=${JSON.stringify(headers)}`,
     );
 
+    // Prepare client certificate options
+    const certOptions = {
+      clientCert:
+        (query.clientCert as string) ||
+        (values["client-cert"] as string) ||
+        process.env.MCP_CLIENT_CERT_PATH,
+      clientKey:
+        (query.clientKey as string) ||
+        (values["client-key"] as string) ||
+        process.env.MCP_CLIENT_KEY_PATH,
+      clientKeyPassphrase:
+        (query.clientKeyPassphrase as string) ||
+        (values["client-key-passphrase"] as string) ||
+        process.env.MCP_CLIENT_KEY_PASSPHRASE,
+      caCert:
+        (query.caCert as string) ||
+        (values["ca-cert"] as string) ||
+        process.env.MCP_CA_CERT_PATH,
+    };
+
+    const agent = createHttpsAgentWithClientCert(certOptions);
+
     const transport = new SSEClientTransport(new URL(url), {
       eventSourceInit: {
-        fetch: createCustomFetch(headerHolder),
+        fetch: createCustomFetch(headerHolder, agent),
       },
       requestInit: {
         headers: headerHolder.headers,
-      },
+        agent,
+      } as any,
     });
     await transport.start();
     return { transport, headerHolder };
@@ -390,11 +487,33 @@ const createTransport = async (
     headers["Accept"] = "text/event-stream, application/json";
     const headerHolder = { headers };
 
+    // Prepare client certificate options
+    const certOptions = {
+      clientCert:
+        (query.clientCert as string) ||
+        (values["client-cert"] as string) ||
+        process.env.MCP_CLIENT_CERT_PATH,
+      clientKey:
+        (query.clientKey as string) ||
+        (values["client-key"] as string) ||
+        process.env.MCP_CLIENT_KEY_PATH,
+      clientKeyPassphrase:
+        (query.clientKeyPassphrase as string) ||
+        (values["client-key-passphrase"] as string) ||
+        process.env.MCP_CLIENT_KEY_PASSPHRASE,
+      caCert:
+        (query.caCert as string) ||
+        (values["ca-cert"] as string) ||
+        process.env.MCP_CA_CERT_PATH,
+    };
+
+    const agent = createHttpsAgentWithClientCert(certOptions);
+
     const transport = new StreamableHTTPClientTransport(
       new URL(query.url as string),
       {
         // Pass a custom fetch to inject the latest headers on each request
-        fetch: createCustomFetch(headerHolder),
+        fetch: createCustomFetch(headerHolder, agent),
       },
     );
     await transport.start();

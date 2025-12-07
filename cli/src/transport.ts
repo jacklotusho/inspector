@@ -13,6 +13,34 @@ export type TransportOptions = {
   args?: string[];
   url?: string;
   headers?: Record<string, string>;
+  clientCert?: string;
+  clientKey?: string;
+  clientKeyPassphrase?: string;
+  caCert?: string;
+};
+
+import https from "node:https";
+import fs from "node:fs";
+
+const createHttpsAgent = (
+  options: TransportOptions,
+): https.Agent | undefined => {
+  if (!options.clientCert || !options.clientKey) {
+    return undefined;
+  }
+
+  try {
+    return new https.Agent({
+      cert: fs.readFileSync(options.clientCert),
+      key: fs.readFileSync(options.clientKey),
+      passphrase: options.clientKeyPassphrase,
+      ca: options.caCert ? fs.readFileSync(options.caCert) : undefined,
+    });
+  } catch (error) {
+    throw new Error(
+      `Failed to load client certificates: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 };
 
 function createStdioTransport(options: TransportOptions): Transport {
@@ -65,25 +93,25 @@ export function createTransport(options: TransportOptions): Transport {
     const url = new URL(options.url);
 
     if (transportType === "sse") {
-      const transportOptions = options.headers
-        ? {
-            requestInit: {
-              headers: options.headers,
-            },
-          }
-        : undefined;
-      return new SSEClientTransport(url, transportOptions);
+      const agent = createHttpsAgent(options);
+      const transportOptions = {
+        requestInit: {
+          headers: options.headers,
+          agent,
+        },
+      };
+      return new SSEClientTransport(url, transportOptions as any);
     }
 
     if (transportType === "http") {
-      const transportOptions = options.headers
-        ? {
-            requestInit: {
-              headers: options.headers,
-            },
-          }
-        : undefined;
-      return new StreamableHTTPClientTransport(url, transportOptions);
+      const agent = createHttpsAgent(options);
+      const transportOptions = {
+        requestInit: {
+          headers: options.headers,
+          agent,
+        },
+      };
+      return new StreamableHTTPClientTransport(url, transportOptions as any);
     }
 
     throw new Error(`Unsupported transport type: ${transportType}`);

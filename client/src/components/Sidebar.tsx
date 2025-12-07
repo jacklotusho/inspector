@@ -698,20 +698,52 @@ const Sidebar = ({
                           </SelectContent>
                         </Select>
                       ) : (
-                        <Input
-                          id={`${configKey}-input`}
-                          data-testid={`${configKey}-input`}
-                          value={configItem.value}
-                          onChange={(e) => {
-                            const newConfig = { ...config };
-                            newConfig[configKey] = {
-                              ...configItem,
-                              value: e.target.value,
-                            };
-                            setConfig(newConfig);
-                          }}
-                          className="font-mono"
-                        />
+                        <div className="relative">
+                          <Input
+                            id={`${configKey}-input`}
+                            data-testid={`${configKey}-input`}
+                            type={
+                              configItem.is_secret &&
+                              !shownEnvVars.has(configKey)
+                                ? "password"
+                                : "text"
+                            }
+                            value={configItem.value}
+                            onChange={(e) => {
+                              const newConfig = { ...config };
+                              newConfig[configKey] = {
+                                ...configItem,
+                                value: e.target.value,
+                              };
+                              setConfig(newConfig);
+                            }}
+                            className="font-mono pr-10"
+                          />
+                          {configItem.is_secret && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                              onClick={() => {
+                                setShownEnvVars((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(configKey)) {
+                                    next.delete(configKey);
+                                  } else {
+                                    next.add(configKey);
+                                  }
+                                  return next;
+                                });
+                              }}
+                            >
+                              {shownEnvVars.has(configKey) ? (
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   );

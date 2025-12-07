@@ -683,7 +683,35 @@ export function useConnection({
             };
             break;
         }
+
         serverUrl = mcpProxyServerUrl as URL;
+
+        // Append mTLS parameters if configured
+        if (config.MCP_CLIENT_CERT_PATH.value) {
+          serverUrl.searchParams.append(
+            "clientCert",
+            config.MCP_CLIENT_CERT_PATH.value as string,
+          );
+        }
+        if (config.MCP_CLIENT_KEY_PATH.value) {
+          serverUrl.searchParams.append(
+            "clientKey",
+            config.MCP_CLIENT_KEY_PATH.value as string,
+          );
+        }
+        if (config.MCP_CLIENT_KEY_PASSPHRASE.value) {
+          serverUrl.searchParams.append(
+            "clientKeyPassphrase",
+            config.MCP_CLIENT_KEY_PASSPHRASE.value as string,
+          );
+        }
+        if (config.MCP_CA_CERT_PATH.value) {
+          serverUrl.searchParams.append(
+            "caCert",
+            config.MCP_CA_CERT_PATH.value as string,
+          );
+        }
+
         serverUrl.searchParams.append("transportType", transportType);
       }
 

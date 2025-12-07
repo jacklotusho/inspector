@@ -17,6 +17,10 @@ type Args = {
   transport?: "stdio" | "sse" | "streamable-http";
   serverUrl?: string;
   headers?: Record<string, string>;
+  clientCert?: string;
+  clientKey?: string;
+  clientKeyPassphrase?: string;
+  caCert?: string;
 };
 
 type CliOptions = {
@@ -27,6 +31,10 @@ type CliOptions = {
   transport?: string;
   serverUrl?: string;
   header?: Record<string, string>;
+  clientCert?: string;
+  clientKey?: string;
+  clientKeyPassphrase?: string;
+  caCert?: string;
 };
 
 type ServerConfig =
@@ -102,6 +110,13 @@ async function runWebClient(args: Args): Promise<void> {
     startArgs.push("--", args.command, ...args.args);
   }
 
+  // Pass mTLS options
+  if (args.clientCert) startArgs.push("--client-cert", args.clientCert);
+  if (args.clientKey) startArgs.push("--client-key", args.clientKey);
+  if (args.clientKeyPassphrase)
+    startArgs.push("--client-key-passphrase", args.clientKeyPassphrase);
+  if (args.caCert) startArgs.push("--ca-cert", args.caCert);
+
   try {
     await spawnPromise("node", [inspectorClientPath, ...startArgs], {
       signal: abort.signal,
@@ -150,6 +165,13 @@ async function runCli(args: Args): Promise<void> {
         cliArgs.push("--header", `${key}: ${value}`);
       }
     }
+
+    // Add mTLS options
+    if (args.clientCert) cliArgs.push("--client-cert", args.clientCert);
+    if (args.clientKey) cliArgs.push("--client-key", args.clientKey);
+    if (args.clientKeyPassphrase)
+      cliArgs.push("--client-key-passphrase", args.clientKeyPassphrase);
+    if (args.caCert) cliArgs.push("--ca-cert", args.caCert);
 
     await spawnPromise("node", cliArgs, {
       env: { ...process.env, ...args.envArgs },
@@ -274,7 +296,14 @@ function parseArgs(): Args {
       'HTTP headers as "HeaderName: Value" pairs (for HTTP/SSE transports)',
       parseHeaderPair,
       {},
-    );
+    )
+    .option("--client-cert <path>", "client certificate path")
+    .option("--client-key <path>", "client private key path")
+    .option(
+      "--client-key-passphrase <passphrase>",
+      "client private key passphrase",
+    )
+    .option("--ca-cert <path>", "CA certificate path");
 
   // Parse only the arguments before --
   program.parse(preArgs);
@@ -369,7 +398,12 @@ function parseArgs(): Args {
     cli: options.cli || false,
     transport: transport as "stdio" | "sse" | "streamable-http" | undefined,
     serverUrl: options.serverUrl,
+
     headers: options.header,
+    clientCert: options.clientCert,
+    clientKey: options.clientKey,
+    clientKeyPassphrase: options.clientKeyPassphrase,
+    caCert: options.caCert,
   };
 }
 
